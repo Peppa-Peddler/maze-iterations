@@ -3,7 +3,7 @@
 #include <random>
 #include <algorithm>
 
-#define N 10
+#define N 100
 
 using namespace std;
 
@@ -29,6 +29,7 @@ bool random_dfs(int i, int j, vector<vector<int> >& state, int branches, int dee
 void newBranch(vector<vector<int> >& state, int branches);
 vector<int> sources;
 vector<vector<int> > C;
+int V[N][N];
 
 void show(vector<vector<int> > &state){
     for(int j = 0; j < n; j++){
@@ -53,6 +54,19 @@ void show(vector<vector<int> > &state){
     }
 }
 
+void showCSV(vector<vector<int> > &state){
+
+    for(int i = 0; i < n; i++){
+        for(int j = 0; j < n; j++){
+            if(j){
+                cout<<",";
+            }
+            cout<<state[ i ][ j ];
+        }
+        cout << endl;
+    }
+}
+
 void newBranch(vector<vector<int> >& state, int branches){
     vector< pair<int, int> > roots;
     random_device rd;
@@ -70,15 +84,15 @@ void newBranch(vector<vector<int> >& state, int branches){
 		int j = root.second;
         bool path = random_dfs(i, j, state, branches);
         if(path){
-            cout << i << " " << j << endl;
+            //cout << i << " " << j << endl;
             return;
         }
     }
 }
 
 bool end(vector<vector<int> >& state, int branches){
-    show(state);
-    cout << "BRANCHES: " << branches << " LEFT" << endl;
+    //show(state);
+    //cout << "BRANCHES: " << branches << " LEFT" << endl;
     C = state;
     if(branches > 0) newBranch(state, branches - 1);
     return true;
@@ -169,6 +183,57 @@ bool random_dfs(int i, int j, vector<vector<int> >& state, int branches, int dee
     return path;
 }
 
+void checkDFS(int i,int j){
+    if( V[i][j] == 2 ) return;
+    V[i][j] = 2;
+    if( i + 1 < n && B(C[i][j]) )
+        checkDFS(i+1, j);
+    if( i - 1 >= 0 && T(C[i][j]) )
+        checkDFS(i-1, j);
+    if( R(C[i][j]) )
+        checkDFS(i,(j+1)%n);
+    if( L(C[i][j]) )
+        checkDFS(i,(j-1+n)%n);
+}
+
+void newPaths(int i, int j){
+    if( V[i][j] ) return;
+    V[i][j] = 1;
+    if( !C[i][(j+1)%n] ){
+        C[i][j] = setR(C[i][j]);
+        C[i][(j+1)%n] = setL(C[i][(j+1)%n]);
+        return newPaths(i,(j+1)%n);
+    }
+    if( !C[i][(j-1+n)%n] ){
+        C[i][j] = setL(C[i][j]);
+        C[i][(j-1+n)%n] = setR(C[i][(j-1+n)%n]);
+        return newPaths(i,(j-1+n)%n);
+    }
+    if( i + 1 < n && !C[i+1][j] ){
+        C[i][j] = setB(C[i][j]);
+        C[i+1][j] = setT(C[i+1][j]);
+        return newPaths(i + 1, j);
+    }
+
+    if( !B(C[i][j]) && i+1<n && V[i+1][j] == 2 ){
+        C[i][j] = setB(C[i][j]);
+        C[i+1][j] = setT(C[i+1][j]);
+    }
+    if( !T(C[i][j]) && i-1>=0 && V[i-1][j] == 2 ){
+        C[i][j] = setT(C[i][j]);
+        C[i-1][j] = setB(C[i-1][j]);
+    }
+    if( !R(C[i][j]) && V[i][(j+1)%n] == 2 ){
+        C[i][j] = setR(C[i][j]);
+        C[i][(j+1)%n] = setL(C[i][(j+1)%n]);
+    }
+    if( !L(C[i][j]) && V[i][(j-1+n)%n] == 2 ){
+        C[i][j] = setL(C[i][j]);
+        C[i][(j-1+n)%n] = setR(C[i][(j-1+n)%n]);    
+    }
+
+}
+
 vector<int> getRandomNumbers(int m) {
     std::vector<int> numbers(n);
     for (int i = 0; i < n; ++i) {
@@ -209,9 +274,34 @@ int main(){
     } 
 
     for(int i = 0; i < m; i++){
-        cout << "NEW SOURCE AT: 0 " << sources[i] << " (" << m - i - 1 <<" LEFT)"<< endl;
+        //cout << "NEW SOURCE AT: 0 " << sources[i] << " (" << m - i - 1 <<" LEFT)"<< endl;
         random_dfs(0, sources[i], C, n/3, 0 ,true);
     }
+
+    //showCSV(C);    
+    //show(C);
+
+    checkDFS(n-1, 0);
+
+    for(int i = 0; i < n - 1; i++){
+        for(int j = 0; j < n; j++){
+            if( C[i][j] and !C[i][(j+1)%n] ){
+                C[i][j] = setR(C[i][j]);
+                C[i][(j+1)%n] = setL(C[i][(j+1)%n]);
+                newPaths(i, (j+1)%n);
+                checkDFS(i, (j+1)%n);
+            }
+        }
+    }
+
+    //show(C);
+    showCSV(C);
+
+    /*for(int i = 0; i < n;i++){
+        for(int j = 0; j < n; j++){
+            cout<<V[i][j];
+        }cout<<endl;
+    }*/
 
     return 0;
 }

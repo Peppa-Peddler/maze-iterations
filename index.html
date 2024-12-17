@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maze Display from CSV</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kode+Mono:wght@400..700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #cccccc;
+            text-align: center;
+            font-family: "Kode Mono", serif;
+            font-optical-sizing: auto;
+            font-style: normal;
+        }
+        canvas {
+            margin-right: 30px;
+            margin-bottom: 20px;
+            vertical-align: middle;
+        }
+        h2{
+          font-weight: 400;
+          margin-bottom: 50px;
+          margin-top: 50px;
+          font-size: 50px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Circular Maze with no dead ends</h2>
+
+    <canvas id="circularMazeCanvas" width="700" height="800"></canvas>
+    <canvas id="squareMazeCanvas" width="300" height="300"></canvas>
+
+    <script>
+        // Define canvas and context for circular maze
+        const circularCanvas = document.getElementById('circularMazeCanvas');
+        const circularCtx = circularCanvas.getContext('2d');
+
+        // Define canvas and context for square maze
+        const squareCanvas = document.getElementById('squareMazeCanvas');
+        const squareCtx = squareCanvas.getContext('2d');
+
+        // Default state if CSV is not loaded
+        let state = [];
+
+        // Helper functions for binary connection states
+        const T = (state) => state & 4;  // Top (center direction)
+        const R = (state) => state & 2;  // Right
+        const B = (state) => state & 1;  // Bottom
+        const L = (state) => state & 8;  // Left
+
+        // Function to load CSV automatically (from "output.csv")
+        function loadCSV() {
+            fetch('output.csv')
+                .then(response => response.text())
+                .then(csvData => {
+                    state = parseCSV(csvData.split("\n").filter(line => line.trim() !== "").join("\n"));
+                    drawCircularMaze(state);
+                    drawSquareMaze(state);
+                })
+                .catch(error => {
+                    console.error('Error loading CSV:', error);
+                });
+        }
+
+        // Function to parse CSV into 2D array
+        function parseCSV(csv) {
+            const rows = csv.split("\n");
+            return rows.map(row => row.split(",").map(Number));
+        }
+
+        // Function to draw circular maze
+        function drawCircularMaze(mazeData) {
+
+          const n = mazeData.length; // Number of concentric circles
+          const m = mazeData[0].length; // Sections per circle
+          const radiusStep = (Math.min(circularCanvas.width, circularCanvas.height) / 2) / n; // Step per circle
+          
+          const centerX = circularCanvas.width / 2;
+          const centerY = circularCanvas.height / 2;
+
+          for (let i = 0; i < n; i++) {
+            const outerRadius = (n - i) * radiusStep; // Outermost circle is row 0
+            const innerRadius = outerRadius - radiusStep;
+
+            for (let j = 0; j < m; j++) {
+              const value = mazeData[i][j]; // Get the binary value
+              const angleStep = (2 * Math.PI) / m;
+
+              // Calculate angles
+              const startAngle = j * angleStep;
+              const endAngle = (j + 1) * angleStep;
+
+              // Draw walls based on binary value
+              //if (!R(value)) { // Connection toward center
+              //   drawLine(centerX, centerY, startAngle, innerRadius, outerRadius);
+              //}
+              if (!T(value)) { // Anticlockwise wall
+                 drawArc(centerX, centerY, outerRadius, startAngle, endAngle);
+              }
+              if (!R(value)) { // Outward wall
+                 drawLine(centerX, centerY, endAngle, outerRadius, innerRadius);
+              }
+              //if (!B(value)) { // Clockwise wall
+              //  drawArc(centerX, centerY, innerRadius, startAngle, endAngle);
+              //}
+            }
+          }
+
+        }
+
+        function drawArc(x, y, radius, startAngle, endAngle) {
+          circularCtx.beginPath();
+          circularCtx.arc(x, y, radius, startAngle, endAngle);
+          circularCtx.stroke();
+        }
+
+        function drawLine(x, y, angle, startRadius, endRadius) {
+          const x1 = x + startRadius * Math.cos(angle);
+          const y1 = y + startRadius * Math.sin(angle);
+          const x2 = x + endRadius * Math.cos(angle);
+          const y2 = y + endRadius * Math.sin(angle);
+          circularCtx.beginPath();
+          circularCtx.moveTo(x1, y1);
+          circularCtx.lineTo(x2, y2);
+          circularCtx.stroke();
+        }
+
+        // Function to draw square maze
+        function drawSquareMaze(state) {
+            squareCtx.clearRect(0, 0, squareCanvas.width, squareCanvas.height); // Clear canvas
+            const cellSize = squareCanvas.width/state.length;  // Size of each cell
+
+            for (let i = 0; i < state.length; i++) {
+                for (let j = 0; j < state[i].length; j++) {
+                    const x = j * cellSize;  // X-coordinate
+                    const y = i * cellSize;  // Y-coordinate
+                    const cellState = state[i][j];  // Current cell state
+
+                    // Draw cell borders based on connections
+                    squareCtx.beginPath();
+                    squareCtx.strokeStyle = "black";
+                    squareCtx.lineWidth = 1;
+
+                    // Top connection
+                    if (!T(cellState)) {
+                        squareCtx.moveTo(x, y);
+                        squareCtx.lineTo(x + cellSize, y);
+                    }
+                    // Right connection
+                    if (!R(cellState)) {
+                        squareCtx.moveTo(x + cellSize, y);
+                        squareCtx.lineTo(x + cellSize, y + cellSize);
+                    }
+                    // Bottom connection
+                    if (!B(cellState)) {
+                        squareCtx.moveTo(x, y + cellSize);
+                        squareCtx.lineTo(x + cellSize, y + cellSize);
+                    }
+                    // Left connection
+                    if (!L(cellState)) {
+                        squareCtx.moveTo(x, y);
+                        squareCtx.lineTo(x, y + cellSize);
+                    }
+
+                    squareCtx.stroke();
+                }
+            }
+        }
+
+        // Automatically load the CSV file when the page is loaded
+        window.onload = loadCSV;
+
+    </script>
+</body>
+</html>
